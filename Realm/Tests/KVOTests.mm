@@ -700,8 +700,7 @@ public:
         [realm addObject:obj];
         obj.obj.obj.boolCol = YES;
         AssertChanged(r, 0U, @NO, @YES);
-//        [realm cancelWriteTransaction];
-        [realm commitWriteTransaction];
+        [realm cancelWriteTransaction];
     }
 
 #if 0

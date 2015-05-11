@@ -577,7 +577,9 @@ static void CheckReadWrite(RLMRealm *realm, NSString *msg=@"Cannot write to a re
 
     if (self.inWriteTransaction) {
         try {
-            LangBindHelper::rollback_and_continue_as_read(*_sharedGroup);
+            call_with_notifications(_sharedGroup.get(), _schema, [](auto&&... args) {
+                LangBindHelper::rollback_and_continue_as_read(args...);
+            });
             _inWriteTransaction = NO;
         }
         catch (std::exception& ex) {
@@ -880,7 +882,8 @@ private:
     }
 };
 
-static void advance_notify(SharedGroup *sg, RLMSchema *schema) {
+template<typename Func>
+static void call_with_notifications(SharedGroup *sg, RLMSchema *schema, Func&& func) {
     std::vector<ObserverState> observers;
     // all this should maybe be precomputed or cached or something
     for (RLMObjectSchema *objectSchema in schema.objectSchema) {
@@ -898,12 +901,13 @@ static void advance_notify(SharedGroup *sg, RLMSchema *schema) {
     }
 
     if (observers.empty()) {
-        LangBindHelper::advance_read(*sg);
+        func(*sg);
         return;
     }
 
     ModifiedRowParser m(observers);
-    LangBindHelper::advance_read(*sg, m);
+    func(*sg, m);
+    LangBindHelper::advance_read(*sg);
 
     for (auto const& o : observers) {
         if (o.row == realm::not_found)
@@ -917,6 +921,12 @@ static void advance_notify(SharedGroup *sg, RLMSchema *schema) {
                      valuesAtIndexes:o.linkviewChangeIndexes
                               forKey:o.key];
     }
+}
+
+static void advance_notify(SharedGroup *sg, RLMSchema *schema) {
+    call_with_notifications(sg, schema, [](auto&&... args) {
+        LangBindHelper::advance_read(args...);
+    });
 }
 
 - (void)handleExternalCommit {
