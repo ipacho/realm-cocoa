@@ -32,7 +32,7 @@
     NSMutableArray *_backingArray;
 }
 
-static void changeArray(unretained<RLMArray> ar, NSKeyValueChange kind, NSIndexSet *is, dispatch_block_t f) {
+static void changeArray(__unsafe_unretained RLMArray *const ar, NSKeyValueChange kind, NSIndexSet *is, dispatch_block_t f) {
     if (!ar->_backingArray) {
         ar->_backingArray = [NSMutableArray new];
     }
@@ -41,11 +41,11 @@ static void changeArray(unretained<RLMArray> ar, NSKeyValueChange kind, NSIndexS
     [ar->_parentObject didChange:kind valuesAtIndexes:is forKey:ar->_key];
 }
 
-static void changeArray(unretained<RLMArray> ar, NSKeyValueChange kind, NSUInteger index, dispatch_block_t f) {
+static void changeArray(__unsafe_unretained RLMArray *const ar, NSKeyValueChange kind, NSUInteger index, dispatch_block_t f) {
     changeArray(ar, kind, [NSIndexSet indexSetWithIndex:index], f);
 }
 
-static void changeArray(unretained<RLMArray> ar, NSKeyValueChange kind, NSRange index, dispatch_block_t f) {
+static void changeArray(__unsafe_unretained RLMArray *const ar, NSKeyValueChange kind, NSRange index, dispatch_block_t f) {
     changeArray(ar, kind, [NSIndexSet indexSetWithIndexesInRange:index], f);
 }
 

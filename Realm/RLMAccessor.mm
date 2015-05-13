@@ -672,8 +672,10 @@ void RLMDynamicValidatedSet(RLMObjectBase *obj, NSString *propName, id val) {
     RLMDynamicSet(obj, prop, val, prop.isPrimary ? RLMCreationOptionsEnforceUnique : 0);
 }
 
-void RLMDynamicSet(__unsafe_unretained RLMObjectBase *const obj, unretained<RLMProperty> prop,
-                   __unsafe_unretained id *const val, RLMCreationOptions options) {
+void RLMDynamicSet(__unsafe_unretained RLMObjectBase *const obj,
+                   __unsafe_unretained RLMProperty *const prop,
+                   __unsafe_unretained id const val,
+                   RLMCreationOptions options) {
     NSUInteger col = prop.column;
     switch (accessorCodeForType(prop.objcType, prop.type)) {
         case RLMAccessorCodeByte:

@@ -531,7 +531,7 @@ void RLMOverrideStandaloneMethods(Class cls) {
         class_addMethod(cls, m.sel, m.imp, m.type);
 }
 
-void RLMTrackDeletions(unretained<RLMRealm> realm, dispatch_block_t block) {
+void RLMTrackDeletions(__unsafe_unretained RLMRealm *const realm, dispatch_block_t block) {
     struct change {
         __unsafe_unretained RLMObservable *observable;
         __unsafe_unretained NSString *property;

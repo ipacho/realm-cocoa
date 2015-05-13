@@ -77,7 +77,7 @@ static inline void RLMValidateObjectClass(__unsafe_unretained RLMObjectBase *con
     }
 }
 
-static void changeArray(unretained<RLMArrayLinkView> ar, NSKeyValueChange kind, NSUInteger index, dispatch_block_t f) {
+static void changeArray(__unsafe_unretained RLMArrayLinkView *const ar, NSKeyValueChange kind, NSUInteger index, dispatch_block_t f) {
     if (ar->_parentObject->_objectSchema->_observers.empty()) {
         f();
         return;
@@ -89,7 +89,7 @@ static void changeArray(unretained<RLMArrayLinkView> ar, NSKeyValueChange kind, 
     RLMDidChange(ar->_parentObject, ar->_key, kind, is);
 }
 
-static void changeArray(unretained<RLMArrayLinkView> ar, NSKeyValueChange kind, NSRange range, dispatch_block_t f) {
+static void changeArray(__unsafe_unretained RLMArrayLinkView *const ar, NSKeyValueChange kind, NSRange range, dispatch_block_t f) {
     if (ar->_parentObject->_objectSchema->_observers.empty()) {
         f();
         return;
@@ -101,7 +101,7 @@ static void changeArray(unretained<RLMArrayLinkView> ar, NSKeyValueChange kind, 
     RLMDidChange(ar->_parentObject, ar->_key, kind, is);
 }
 
-static void changeArray(unretained<RLMArrayLinkView> ar, NSKeyValueChange kind, NSIndexSet *is, dispatch_block_t f) {
+static void changeArray(__unsafe_unretained RLMArrayLinkView *const ar, NSKeyValueChange kind, NSIndexSet *is, dispatch_block_t f) {
     if (ar->_parentObject->_objectSchema->_observers.empty()) {
         f();
         return;
