@@ -907,7 +907,6 @@ static void call_with_notifications(SharedGroup *sg, RLMSchema *schema, Func&& f
 
     ModifiedRowParser m(observers);
     func(*sg, m);
-    LangBindHelper::advance_read(*sg);
 
     for (auto const& o : observers) {
         if (o.row == realm::not_found)

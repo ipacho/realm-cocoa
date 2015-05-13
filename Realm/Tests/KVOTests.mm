@@ -700,7 +700,8 @@ public:
         [realm addObject:obj];
         obj.obj.obj.boolCol = YES;
         AssertChanged(r, 0U, @NO, @YES);
-        [realm cancelWriteTransaction];
+//        [realm cancelWriteTransaction];
+        [realm commitWriteTransaction];
     }
 
 #if 0
@@ -920,6 +921,16 @@ public:
 
 - (void)testIgnoredProperty {
     // ignored properties do not notify other accessors for the same row
+}
+
+- (void)testCancelWriteTransactionWhileObservingNewObject {
+    @autoreleasepool {
+        KVOObject *obj = [self createObject];
+        KVORecorder r(self, obj, @"invalidated");
+        [self.realm cancelWriteTransaction];
+        AssertChanged(r, 0U, @NO, @YES);
+        [self.realm beginWriteTransaction];
+    }
 }
 @end
 
