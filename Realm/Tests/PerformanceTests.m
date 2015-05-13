@@ -497,7 +497,7 @@ static RLMRealm *s_smallRealm, *s_mediumRealm, *s_largeRealm;
     RLMRealm *realm = RLMRealm.defaultRealm;
     [realm beginWriteTransaction];
 
-    IntObject *obj1 = [IntObject createInDefaultRealmWithObject:@[@5]];
+    IntObject *obj1 = [IntObject createInDefaultRealmWithValue:@[@5]];
     IntObject *obj2 = [IntObject allObjects].firstObject;
 
     [obj2 addObserver:self forKeyPath:@"intCol" options:0 context:0];
@@ -529,7 +529,7 @@ static RLMRealm *s_smallRealm, *s_mediumRealm, *s_largeRealm;
     [realm beginWriteTransaction];
     NSMutableArray *arr = [NSMutableArray new];
     for (int i = 0; i < 10000; ++i) {
-        [arr addObject:[IntObject createInDefaultRealmWithObject:@[@0]]];
+        [arr addObject:[IntObject createInDefaultRealmWithValue:@[@0]]];
     }
 
     for (IntObject *o in arr)

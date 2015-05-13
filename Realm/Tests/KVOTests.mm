@@ -764,7 +764,7 @@ public:
 
 - (id)createObject {
     static std::atomic<int> pk{0};
-    return [KVOObject createInDefaultRealmWithObject:@[@(++pk),
+    return [KVOObject createInDefaultRealmWithValue:@[@(++pk),
                                                        @NO, @1, @2, @3, @0, @0, @NO, @"",
                                                        NSData.data, [NSDate dateWithTimeIntervalSinceReferenceDate:0],
                                                        NSNull.null, NSNull.null]];
@@ -772,7 +772,7 @@ public:
 
 - (id)createLinkObject {
     static std::atomic<int> pk{0};
-    return [KVOLinkObject2 createInDefaultRealmWithObject:@[@(++pk), @[@(++pk), [self createObject], @[]], @[]]];
+    return [KVOLinkObject2 createInDefaultRealmWithValue:@[@(++pk), @[@(++pk), [self createObject], @[]], @[]]];
 }
 
 - (void)testDeleteObservedObject {
