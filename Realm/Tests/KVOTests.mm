@@ -924,13 +924,58 @@ public:
 }
 
 - (void)testCancelWriteTransactionWhileObservingNewObject {
-    @autoreleasepool {
-        KVOObject *obj = [self createObject];
-        KVORecorder r(self, obj, @"invalidated");
-        [self.realm cancelWriteTransaction];
-        AssertChanged(r, 0U, @NO, @YES);
-        [self.realm beginWriteTransaction];
+    KVOObject *obj = [self createObject];
+    KVORecorder r(self, obj, @"invalidated");
+    KVORecorder r2(self, obj, @"boolCol");
+    [self.realm cancelWriteTransaction];
+    AssertChanged(r, 0U, @NO, @YES);
+    [self.realm beginWriteTransaction];
+}
+
+- (void)testCancelWriteTransactionWhileObservingChangedProperty {
+    KVOObject *obj = [self createObject];
+    [self.realm commitWriteTransaction];
+    [self.realm beginWriteTransaction];
+
+    obj.boolCol = YES;
+
+    KVORecorder r(self, obj, @"boolCol");
+    [self.realm cancelWriteTransaction];
+    AssertChanged(r, 0U, @YES, @NO);
+
+    [self.realm beginWriteTransaction];
+}
+
+- (void)testCancelWriteTransactionWhileObservingLinkToExistingObject {
+    KVOObject *obj = [self createObject];
+    KVOObject *obj2 = [self createObject];
+    [self.realm commitWriteTransaction];
+    [self.realm beginWriteTransaction];
+
+    obj.objectCol = obj2;
+
+    KVORecorder r(self, obj, @"objectCol");
+    [self.realm cancelWriteTransaction];
+    AssertChanged(r, 0U, obj2, NSNull.null);
+
+    [self.realm beginWriteTransaction];
+}
+
+- (void)testCancelWriteTransactionWhileObservingLinkToNewObject {
+    KVOObject *obj = [self createObject];
+    [self.realm commitWriteTransaction];
+    [self.realm beginWriteTransaction];
+
+    obj.objectCol = [self createObject];
+
+    KVORecorder r(self, obj, @"objectCol");
+    [self.realm cancelWriteTransaction];
+    if (KVONotification *note = AssertNotification(r, 0U)) {
+        XCTAssertTrue([note->change[NSKeyValueChangeOldKey] isKindOfClass:[RLMObjectBase class]]);
+        XCTAssertEqualObjects(note->change[NSKeyValueChangeNewKey], NSNull.null);
     }
+
+    [self.realm beginWriteTransaction];
 }
 @end
 
