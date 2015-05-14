@@ -977,6 +977,26 @@ public:
 
     [self.realm beginWriteTransaction];
 }
+
+- (void)testCancelWriteTransactionWhileObservingNewObjectLinkingToNewObject {
+    KVOObject *obj = [self createObject];
+    obj.objectCol = [self createObject];
+    KVORecorder r(self, obj, @"invalidated");
+    KVORecorder r2(self, obj, @"objectCol");
+    KVORecorder r3(self, obj, @"objectCol.boolCol");
+    [self.realm cancelWriteTransaction];
+    AssertChanged(r, 0U, @NO, @YES);
+    if (KVONotification *note = AssertNotification(r2, 0U)) {
+        XCTAssertTrue([note->change[NSKeyValueChangeOldKey] isKindOfClass:[RLMObjectBase class]]);
+        XCTAssertEqualObjects(note->change[NSKeyValueChangeNewKey], NSNull.null);
+    }
+    // what should r3 notify? anything?
+    // too many invalidateds being sent
+    [self.realm beginWriteTransaction];
+}
+
+// linnkview shit
+// linkview and table selection ordering
 @end
 
 // Observing an object from a different RLMRealm instance backed by the same

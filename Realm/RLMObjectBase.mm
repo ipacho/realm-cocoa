@@ -46,6 +46,9 @@
     if ([key isEqualToString:@"invalidated"]) {
         return @(!_row.is_attached());
     }
+    else if (!_row.is_attached()) {
+        return nil;
+    }
 
     return RLMDynamicGet(_realm, _row, _objectSchema[key]);
 }

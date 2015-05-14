@@ -20,10 +20,11 @@
 
 #import "RLMArray_Private.hpp"
 #import "RLMMigration_Private.h"
-#import "RLMObject_Private.h"
 #import "RLMObjectSchema_Private.hpp"
 #import "RLMObjectStore.h"
+#import "RLMObject_Private.h"
 #import "RLMObject_Private.hpp"
+#import "RLMProperty.h"
 #import "RLMQueryUtil.hpp"
 #import "RLMRealmUtil.h"
 #import "RLMSchema_Private.h"
@@ -669,6 +670,7 @@ struct ObserverState {
     size_t column;
     NSString *key;
     __unsafe_unretained RLMObservable *observable;
+    bool isLink;
 
     bool changed = false;
     bool multipleLinkviewChanges = false;
@@ -686,8 +688,12 @@ public:
 
     void parse_complete() {
         for (auto& o : observers) {
-            if (o.row == realm::not_found)
+            if (o.row == realm::not_found) {
+                if (o.isLink) {
+                    [o.observable willChangeValueForKey:o.key];
+                }
                 [o.observable willChangeValueForKey:@"invalidated"];
+            }
             if (!o.changed)
                 continue;
 
@@ -895,7 +901,8 @@ static void call_with_notifications(SharedGroup *sg, RLMSchema *schema, Func&& f
                     row.get_index(),
                     i,
                     [objectSchema.properties[i] name],
-                    observable});
+                    observable,
+                    [(RLMProperty *)objectSchema.properties[i] type] == RLMPropertyTypeObject});
             }
         }
     }
@@ -909,8 +916,12 @@ static void call_with_notifications(SharedGroup *sg, RLMSchema *schema, Func&& f
     func(*sg, m);
 
     for (auto const& o : observers) {
-        if (o.row == realm::not_found)
+        if (o.row == realm::not_found) {
             [o.observable didChangeValueForKey:@"invalidated"];
+            if (o.isLink) {
+                [o.observable didChangeValueForKey:o.key];
+            }
+        }
         if (!o.changed)
             continue;
         if (!o.linkviewChangeIndexes)
