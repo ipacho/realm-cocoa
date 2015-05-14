@@ -593,7 +593,7 @@ public:
 
 - (void)testChangeEndOfKeyPath {
     KVOLinkObject2 *obj = [self createLinkObject];
-    KVORecorder r (self, obj, @"obj.obj.boolCol");
+    KVORecorder r(self, obj, @"obj.obj.boolCol");
     obj.obj.obj.boolCol = YES;
     AssertChanged(r, 0U, @NO, @YES);
 }
@@ -604,13 +604,20 @@ public:
     KVOObject *newObj = [self createObject];
     newObj.boolCol = YES;
 
-    KVORecorder r (self, obj, @"obj.obj.boolCol");
+    KVORecorder r(self, obj, @"obj.obj.boolCol");
     obj.obj.obj = newObj;
     AssertChanged(r, 0U, @NO, @YES);
     newObj.boolCol = NO;
     AssertChanged(r, 1U, @YES, @NO);
     oldObj.boolCol = YES;
     XCTAssertEqual(2U, r.notifications.size());
+}
+
+- (void)testNullifyMiddleOfKeyPath {
+    KVOLinkObject2 *obj = [self createLinkObject];
+    KVORecorder r(self, obj, @"obj.obj.boolCol");
+    obj.obj = nil;
+    AssertChanged(r, 0U, @NO, NSNull.null);
 }
 
 //- (void)testObserveArrayCount {
@@ -626,7 +633,6 @@ public:
 //   - keypaths over rlmarray
 //   - Batch array modification
 //   - observe over array keypath
-//   - delete observed object [in middle]
 //   - observe over nil link
 @end
 
@@ -783,6 +789,13 @@ public:
     [self.realm deleteObject:obj];
     AssertChanged(r2, 0U, @NO, @YES);
     // should not crash
+}
+
+- (void)testDeleteMiddleOfKeyPath {
+    KVOLinkObject2 *obj = [self createLinkObject];
+    KVORecorder r(self, obj, @"obj.obj.boolCol");
+    [self.realm deleteObject:obj.obj];
+    AssertChanged(r, 0U, @NO, NSNull.null);
 }
 
 - (void)testDeleteParentOfObservedRLMArray {
