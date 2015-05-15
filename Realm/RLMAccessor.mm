@@ -350,8 +350,13 @@ static inline void RLMSetValue(__unsafe_unretained RLMObjectBase *const obj,
     @throw RLMException([NSString stringWithFormat:@"Inserting invalid object of class %@ for an RLMPropertyTypeAny property (%@).", [val class], [obj->_objectSchema.properties[col_ndx] name]]);
 }
 
+template<typename FunctionType>
+static FunctionType RLMGetImpForSelector(Class cls, SEL selector) {
+    return reinterpret_cast<FunctionType>(method_getImplementation(class_getInstanceMethod(cls, selector)));
+}
+
 // dynamic getter with column closure
-static IMP RLMAccessorGetter(RLMProperty *prop, RLMAccessorCode accessorCode) {
+static IMP RLMAccessorGetter(RLMProperty *prop, RLMAccessorCode accessorCode, Class superClass) {
     NSUInteger colIndex = prop.column;
     switch (accessorCode) {
         case RLMAccessorCodeByte:
@@ -400,8 +405,17 @@ static IMP RLMAccessorGetter(RLMProperty *prop, RLMAccessorCode accessorCode) {
             });
         case RLMAccessorCodeLink: {
             NSString *objectClassName = prop.objectClassName;
+            SEL getterSel = prop.getterSel;
+            SEL setterSel = prop.setterSel;
+            auto getter = RLMGetImpForSelector<id (*)(id, SEL)>(superClass, getterSel);
+            auto setter = RLMGetImpForSelector<void (*)(id, SEL, id)>(superClass, setterSel);
             return imp_implementationWithBlock(^id(__unsafe_unretained RLMObjectBase *const obj) {
-                return RLMGetLink(obj, colIndex, objectClassName);
+                id value = getter(obj, getterSel);
+                if (!value) {
+                    value = RLMGetLink(obj, colIndex, objectClassName);
+                    setter(obj, setterSel, value);
+                }
+                return value;
             });
         }
         case RLMAccessorCodeArray: {
@@ -435,7 +449,7 @@ static IMP RLMMakeSetter(RLMProperty *prop) {
 }
 
 // dynamic setter with column closure
-static IMP RLMAccessorSetter(RLMProperty *prop, RLMAccessorCode accessorCode) {
+static IMP RLMAccessorSetter(RLMProperty *prop, RLMAccessorCode accessorCode, Class parentClass) {
     switch (accessorCode) {
         case RLMAccessorCodeByte:     return RLMMakeSetter<char, long long>(prop);
         case RLMAccessorCodeShort:    return RLMMakeSetter<short, long long>(prop);
@@ -454,53 +468,44 @@ static IMP RLMAccessorSetter(RLMProperty *prop, RLMAccessorCode accessorCode) {
     }
 }
 
-// call getter for superclass for property at colIndex
-static id RLMSuperGet(RLMObjectBase *obj, NSString *propName) {
-    typedef id (*getter_type)(RLMObjectBase *, SEL);
-    RLMProperty *prop = obj->_objectSchema[propName];
-    Class superClass = class_getSuperclass(obj.class);
-    getter_type superGetter = (getter_type)[superClass instanceMethodForSelector:prop.getterSel];
-    return superGetter(obj, prop.getterSel);
-}
-
-// call setter for superclass for property at colIndex
-static void RLMSuperSet(RLMObjectBase *obj, NSString *propName, id val) {
-    typedef void (*setter_type)(RLMObjectBase *, SEL, RLMArray *ar);
-    RLMProperty *prop = obj->_objectSchema[propName];
-    Class superClass = class_getSuperclass(obj.class);
-    setter_type superSetter = (setter_type)[superClass instanceMethodForSelector:prop.setterSel];
-    superSetter(obj, prop.setterSel, val);
-}
-
 // getter/setter for standalone
-static IMP RLMAccessorStandaloneGetter(RLMProperty *prop, RLMAccessorCode accessorCode) {
+static IMP RLMAccessorStandaloneGetter(RLMProperty *prop, RLMAccessorCode accessorCode, Class superClass) {
     // only override getters for RLMArray properties
     if (accessorCode == RLMAccessorCodeArray) {
         NSString *propName = prop.name;
         NSString *objectClassName = prop.objectClassName;
+
+        SEL getterSel = prop.getterSel;
+        auto superGet = RLMGetImpForSelector<id (*)(RLMObjectBase *, SEL)>(superClass, getterSel);
+        SEL setterSel = prop.setterSel;
+        auto superSet = RLMGetImpForSelector<void (*)(RLMObjectBase *, SEL, id)>(superClass, setterSel);
+
         return imp_implementationWithBlock(^(RLMObjectBase *obj) {
-            id val = RLMSuperGet(obj, propName);
+            id val = superGet(obj, getterSel);
             if (!val) {
                 val = [[RLMArray alloc] initWithObjectClassName:objectClassName parentObject:obj key:propName];
-                RLMSuperSet(obj, propName, val);
+                superSet(obj, setterSel, val);
             }
             return val;
         });
     }
     return nil;
 }
-static IMP RLMAccessorStandaloneSetter(RLMProperty *prop, RLMAccessorCode accessorCode) {
+static IMP RLMAccessorStandaloneSetter(RLMProperty *prop, RLMAccessorCode accessorCode, Class superClass) {
     // only override getters for RLMArray properties
     if (accessorCode == RLMAccessorCodeArray) {
         NSString *propName = prop.name;
         NSString *objectClassName = prop.objectClassName;
+        SEL setterSel = prop.setterSel;
+        auto superSet = RLMGetImpForSelector<void (*)(RLMObjectBase *, SEL, id)>(superClass, setterSel);
+
         return imp_implementationWithBlock(^(RLMObjectBase *obj, id<NSFastEnumeration> ar) {
             // make copy when setting (as is the case for all other variants)
             RLMArray *standaloneAr = [[RLMArray alloc] initWithObjectClassName:objectClassName parentObject:obj key:propName];
             if ((id)ar != NSNull.null) {
                 [standaloneAr addObjects:ar];
             }
-            RLMSuperSet(obj, propName, standaloneAr);
+            superSet(obj, setterSel, standaloneAr);
         });
     }
     return nil;
@@ -602,8 +607,8 @@ void RLMReplaceSharedSchemaMethod(Class accessorClass, RLMObjectSchema *schema) 
 static Class RLMCreateAccessorClass(Class objectClass,
                                     RLMObjectSchema *schema,
                                     NSString *accessorClassPrefix,
-                                    IMP (*getterGetter)(RLMProperty *, RLMAccessorCode),
-                                    IMP (*setterGetter)(RLMProperty *, RLMAccessorCode)) {
+                                    IMP (*getterGetter)(RLMProperty *, RLMAccessorCode, Class),
+                                    IMP (*setterGetter)(RLMProperty *, RLMAccessorCode, Class)) {
     // throw if no schema, prefix, or object class
     if (!objectClass || !schema || !accessorClassPrefix) {
         @throw RLMException(@"Missing arguments");
@@ -625,13 +630,13 @@ static Class RLMCreateAccessorClass(Class objectClass,
         RLMProperty *prop = schema.properties[propNum];
         RLMAccessorCode accessorCode = accessorCodeForType(prop.objcType, prop.type);
         if (prop.getterSel && getterGetter) {
-            IMP getterImp = getterGetter(prop, accessorCode);
+            IMP getterImp = getterGetter(prop, accessorCode, objectClass);
             if (getterImp) {
                 class_replaceMethod(accClass, prop.getterSel, getterImp, getterTypeStringForObjcCode(prop.objcType));
             }
         }
         if (prop.setterSel && setterGetter) {
-            IMP setterImp = setterGetter(prop, accessorCode);
+            IMP setterImp = setterGetter(prop, accessorCode, objectClass);
             if (setterImp) {
                 class_replaceMethod(accClass, prop.setterSel, setterImp, setterTypeStringForObjcCode(prop.objcType));
             }
